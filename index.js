@@ -110,6 +110,12 @@ async function run() {
                     email: decoded.email
                 }
                 c.already_follower = await followCollection.count(query2);
+
+                let query3 = {
+                    follow: decoded.email
+                }
+                c.total_follower = await followCollection.count(query3);
+
             }
             res.send(c);
         });
