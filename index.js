@@ -57,7 +57,7 @@ async function run() {
         });
 
         app.post('/follow_unfollow', async (req, res) => {
-            const u = req.body;let result;
+            const u = req.body; let result;
             if (req.query.task == 'follow') {
                 result = await followCollection.findOne(u);
                 if (!result) {
@@ -103,21 +103,28 @@ async function run() {
                 email: req.query.email
             }
             const decoded = req.decoded;
-            const c = await userCollection.findOne(query)
-            if (c) {
+            const user = await userCollection.findOne(query)
+            if (user) {
                 let query2 = {
                     follow: req.query.email,
                     email: decoded.email
                 }
-                c.already_follower = await followCollection.count(query2);
+                user.already_follower = await followCollection.count(query2);
 
-                let query3 = {
-                    follow: decoded.email
-                }
-                c.total_follower = await followCollection.count(query3);
+                let follow = await followCollection.aggregate([{
+                    $lookup: {
+                        from: 'users',
+                        localField: "email",
+                        foreignField: "email",
+                        as: 'details'
+                    }
+                }, {
+                    $match: { follow: req.query.email }
+                }]);
+                user.total_follower = await follow.toArray();
 
             }
-            res.send(c);
+            res.send(user);
         });
 
         app.delete('/users/:id', verifyJWT, async (req, res) => {
