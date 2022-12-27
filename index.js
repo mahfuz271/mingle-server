@@ -34,6 +34,7 @@ async function run() {
     try {
         const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
         const userCollection = client.db('mingle').collection('users');
+        const followCollection = client.db('mingle').collection('follower');
 
 
         app.post('/jwtANDusers', async (req, res) => {
@@ -52,6 +53,21 @@ async function run() {
                 return res.send({ token, role });
             }
             res.send({})
+
+        });
+
+        app.post('/follow_unfollow', async (req, res) => {
+            const u = req.body;let result;
+            if (req.query.task == 'follow') {
+                result = await followCollection.findOne(u);
+                if (!result) {
+                    u.created = new Date(Date.now());
+                    result = await followCollection.insertOne(u);
+                }
+            } else {
+                result = await followCollection.deleteOne(u);
+            }
+            res.send(result)
 
         });
 
@@ -86,7 +102,15 @@ async function run() {
             let query = {
                 email: req.query.email
             }
+            const decoded = req.decoded;
             const c = await userCollection.findOne(query)
+            if (c) {
+                let query2 = {
+                    follow: req.query.email,
+                    email: decoded.email
+                }
+                c.already_follower = await followCollection.count(query2);
+            }
             res.send(c);
         });
 
