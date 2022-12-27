@@ -83,6 +83,14 @@ async function run() {
             res.send({ role: c.role });
         });
 
+        app.post('/getProfile', verifyJWT, async (req, res) => {
+            let query = {
+                email: req.query.email
+            }
+            const c = await userCollection.findOne(query)
+            res.send(c);
+        });
+
         app.delete('/users/:id', verifyJWT, async (req, res) => {
             const id = req.params.id;
             const query = { _id: ObjectId(id) };
