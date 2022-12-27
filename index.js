@@ -55,8 +55,7 @@ async function run() {
 
         });
 
-        //add or update
-        app.post('/userVerify', verifyJWT, async (req, res) => {
+        app.post('/updateProfile', verifyJWT, async (req, res) => {
             const s = req.body;
             const decoded = req.decoded;
 
