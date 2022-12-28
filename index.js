@@ -74,13 +74,33 @@ async function run() {
         });
 
         app.get('/postsByEmail', verifyJWT, async (req, res) => {
-            let query = {
-                email: req.query.email
+            let query = {};
+            let sortby = req.query?.sort;
+            let limit = parseInt(req.query.limit);
+            if (sortby == 'like_count') {
+                sortby = { like_count: -1 };
+            } else {
+                sortby = { created: -1 };
+            }
+
+            if (req.query.email != 'all') {
+                query = {
+                    email: req.query.email
+                }
             }
             const decoded = req.decoded;
             const posts = await postsCollection.aggregate([
                 {
+                    $lookup: {
+                        from: 'users',
+                        localField: "email",
+                        foreignField: "email",
+                        as: 'user'
+                    }
+                },
+                {
                     $project: {
+                        user: 1,
                         email: 1,
                         privacy: 1,
                         text: 1,
@@ -94,9 +114,9 @@ async function run() {
 
                 }, {
                     $match: query
-                }, { $limit: 20 }
-            ]).sort({ created: -1 }, function (err, cursor) { })?.toArray();
-            
+                }, { $limit: limit }
+            ]).sort(sortby, function (err, cursor) { })?.toArray();
+
             if (posts && posts.length > 0) {
                 for (let i = 0; i < posts.length; i++) {
                     let query2 = {
