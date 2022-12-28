@@ -36,6 +36,7 @@ async function run() {
         const userCollection = client.db('mingle').collection('users');
         const followCollection = client.db('mingle').collection('follower');
         const postsCollection = client.db('mingle').collection('posts');
+        const commentCollection = client.db('mingle').collection('comments');
 
 
         app.post('/post', verifyJWT, async (req, res) => {
@@ -50,6 +51,16 @@ async function run() {
                 return res.status(403).send({ message: 'unauthorized access' })
             }
             let result = await postsCollection.insertOne(post);
+            return res.send(result)
+        });
+
+        app.post('/addComment', verifyJWT, async (req, res) => {
+            const post = req.body;
+            post.created = new Date(Date.now());
+            if (decoded.email !== post.email) {
+                return res.status(403).send({ message: 'unauthorized access' })
+            }
+            let result = await commentCollection.insertOne(post);
             return res.send(result)
         });
 
@@ -75,7 +86,7 @@ async function run() {
                 }, {
                     $match: query
                 }
-            ])?.toArray();
+            ]).sort({ created: -1 }, function (err, cursor) { })?.toArray();
             res.send(posts);
         });
 
