@@ -38,15 +38,18 @@ async function run() {
         const postsCollection = client.db('mingle').collection('posts');
 
 
-        app.post('/post', async (req, res) => {
+        app.post('/post', verifyJWT, async (req, res) => {
             const post = req.body;
+            post.likes = [];
+            post.comments = {};
+            post.created = new Date(Date.now());
+
             const decoded = req.decoded;
 
             if (decoded.email !== post.email) {
                 return res.status(403).send({ message: 'unauthorized access' })
             }
-            post.created = new Date(Date.now());
-            let result = await postsCollection.insertOne(u);
+            let result = await postsCollection.insertOne(post);
             return res.send(result)
         });
 
@@ -54,10 +57,53 @@ async function run() {
             let query = {
                 email: req.query.email
             }
-            const posts = await postsCollection.find(query)?.toArray();
+            const decoded = req.decoded;
+            const posts = await postsCollection.aggregate([
+                {
+                    $project: {
+                        email: 1,
+                        privacy: 1,
+                        text: 1,
+                        img: 1,
+                        created: 1,
+                        like_by: {
+                            $in: [decoded.email, "$likes"]
+                        },
+                        like_count: { $size: "$likes" }
+                    }
+
+                }, {
+                    $match: query
+                }
+            ])?.toArray();
             res.send(posts);
         });
 
+        app.post('/postreact', verifyJWT, async (req, res) => {
+            const query = { _id: ObjectId(req.query.id) };
+            const email = req.decoded.email;
+            const result = await postsCollection.aggregate([
+                {
+                    $project: {
+                        likes: 1
+                    }
+                }, {
+                    $match: query
+                }, { $limit: 1 }
+            ]).toArray();
+
+            if (result && result[0]) {
+                let likes = result[0].likes ? result[0].likes : [];
+                likes = likes.filter(item => item !== email);
+                if (req.query.task == 'added') {
+                    likes.push(email);
+                }
+                const updatedDoc = { $set: { likes } };
+                let result2 = await postsCollection.updateOne(query, updatedDoc);
+            }
+            res.send({})
+
+        });
 
         app.post('/jwtANDusers', async (req, res) => {
             const u = req.body;
@@ -77,6 +123,7 @@ async function run() {
             res.send({})
 
         });
+
         app.post('/follow_unfollow', async (req, res) => {
             const u = req.body; let result;
             if (req.query.task == 'follow') {
