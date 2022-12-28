@@ -37,6 +37,7 @@ async function run() {
         const followCollection = client.db('mingle').collection('follower');
         const postsCollection = client.db('mingle').collection('posts');
         const commentCollection = client.db('mingle').collection('comments');
+        const messagesCollection = client.db('mingle').collection('messages');
 
 
         app.post('/post', verifyJWT, async (req, res) => {
@@ -213,6 +214,57 @@ async function run() {
             }
             const c = await userCollection.findOne(query)
             res.send({ role: c.role });
+        });
+
+        app.post('/addMessage', verifyJWT, async (req, res) => {
+            const msg = req.body;
+            msg.created = new Date(Date.now());
+            msg.seen = false;
+            const userEmail = req.decoded.email;
+            msg.email = userEmail;
+            let result = await messagesCollection.insertOne(msg);
+            return res.send(result)
+        });
+
+        app.get('/allMessages', verifyJWT, async (req, res) => {
+            const userEmail = req.decoded.email;
+            let query = ({
+                $or: [{
+                    to: userEmail
+                }, {
+                    email: userEmail
+                }]
+            });
+            let messages = await messagesCollection.distinct("email", query);
+            let users = await userCollection.find({ email: { $in: messages } })?.toArray();
+
+            res.send(users);
+        });
+
+
+        app.get('/messages', verifyJWT, async (req, res) => {
+            const userEmail = req.decoded.email;
+            let r = {};
+            let query = {
+                email: req.query.email,
+            }
+            const user = await userCollection.findOne(query);
+            if (user) {
+                r.user = user;
+                let query2 = ({
+                    $or: [{
+                        email: req.query.email,
+                        to: userEmail
+                    }, {
+                        to: req.query.email,
+                        email: userEmail
+                    }]
+                });
+                let messages = await messagesCollection.find(query2).sort({ created: 1 }, function (err, cursor) { })?.toArray();
+                r.messages = messages;
+
+            }
+            res.send(r);
         });
 
         app.post('/getProfile', verifyJWT, async (req, res) => {
