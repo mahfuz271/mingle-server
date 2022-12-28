@@ -102,7 +102,6 @@ async function run() {
                     let query2 = {
                         pid: posts[i]._id.toString()
                     }
-                    console.log(query2);
                     posts[i].comment_count = await commentCollection.count(query2);
                 }
             }
