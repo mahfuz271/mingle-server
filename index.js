@@ -35,6 +35,28 @@ async function run() {
         const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
         const userCollection = client.db('mingle').collection('users');
         const followCollection = client.db('mingle').collection('follower');
+        const postsCollection = client.db('mingle').collection('posts');
+
+
+        app.post('/post', async (req, res) => {
+            const post = req.body;
+            const decoded = req.decoded;
+
+            if (decoded.email !== post.email) {
+                return res.status(403).send({ message: 'unauthorized access' })
+            }
+            post.created = new Date(Date.now());
+            let result = await postsCollection.insertOne(u);
+            return res.send(result)
+        });
+
+        app.get('/postsByEmail', verifyJWT, async (req, res) => {
+            let query = {
+                email: req.query.email
+            }
+            const posts = await postsCollection.find(query)?.toArray();
+            res.send(posts);
+        });
 
 
         app.post('/jwtANDusers', async (req, res) => {
@@ -55,7 +77,6 @@ async function run() {
             res.send({})
 
         });
-
         app.post('/follow_unfollow', async (req, res) => {
             const u = req.body; let result;
             if (req.query.task == 'follow') {
