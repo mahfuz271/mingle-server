@@ -55,13 +55,22 @@ async function run() {
         });
 
         app.post('/addComment', verifyJWT, async (req, res) => {
-            const post = req.body;
-            post.created = new Date(Date.now());
-            if (decoded.email !== post.email) {
+            const comment = req.body;
+            const decoded = req.decoded;
+            comment.created = new Date(Date.now());
+            if (decoded.email !== comment.email) {
                 return res.status(403).send({ message: 'unauthorized access' })
             }
-            let result = await commentCollection.insertOne(post);
+            let result = await commentCollection.insertOne(comment);
             return res.send(result)
+        });
+
+        app.post('/commentsByPID', verifyJWT, async (req, res) => {
+            let query = {
+                pid: req.query.id
+            }
+            const c = await commentCollection.find(query).sort({ created: -1 }, function (err, cursor) { })?.toArray();
+            res.send(c);
         });
 
         app.get('/postsByEmail', verifyJWT, async (req, res) => {
@@ -85,8 +94,18 @@ async function run() {
 
                 }, {
                     $match: query
-                }
+                }, { $limit: 20 }
             ]).sort({ created: -1 }, function (err, cursor) { })?.toArray();
+            
+            if (posts && posts.length > 0) {
+                for (let i = 0; i < posts.length; i++) {
+                    let query2 = {
+                        pid: posts[i]._id.toString()
+                    }
+                    console.log(query2);
+                    posts[i].comment_count = await commentCollection.count(query2);
+                }
+            }
             res.send(posts);
         });
 
